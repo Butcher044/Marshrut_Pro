@@ -913,6 +913,6 @@ curl -X POST http://localhost:8080/api/routes/geocode \
 
 <div align="center">
 
-Дипломная работа · Гизатулин Никита · 2025
+Дипломная работа · Гизатулин Никита · 2026
 
 </div>
