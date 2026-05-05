@@ -1,0 +1,220 @@
+version: '3.9'
+
+services:
+
+  # ============================================================
+  # PostgreSQL + PostGIS
+  # ============================================================
+  postgres:
+    image: postgis/postgis:15-3.3
+    container_name: tms-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tms_db
+      POSTGRES_USER: tms_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/01_init.sql
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tms_user -d tms_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ============================================================
+  # Redis
+  # ============================================================
+  redis:
+    image: redis:7.2-alpine
+    container_name: tms-redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a $$REDIS_PASSWORD ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================
+  # Eureka Server
+  # ============================================================
+  eureka-server:
+    build:
+      context: .
+      dockerfile: tms-eureka-server/Dockerfile
+    container_name: tms-eureka
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8761:8761"
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8761/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 50s
+
+  # ============================================================
+  # API Gateway
+  # ============================================================
+  api-gateway:
+    build:
+      context: .
+      dockerfile: tms-api-gateway/Dockerfile
+    container_name: tms-gateway
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    networks:
+      - internal
+    environment:
+      EUREKA_URI: http://eureka-server:8761/eureka/
+      JWT_SECRET: ${JWT_SECRET}
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  # ============================================================
+  # Auth Service
+  # ============================================================
+  auth-service:
+    build:
+      context: .
+      dockerfile: tms-auth-service/Dockerfile
+    container_name: tms-auth
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8081:8081"
+    networks:
+      - internal
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/tms_db
+      DB_USER: tms_user
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ACCESS_EXPIRATION: 900000
+      JWT_REFRESH_EXPIRATION: 604800000
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      YANDEX_CLIENT_ID: ${YANDEX_CLIENT_ID}
+      YANDEX_CLIENT_SECRET: ${YANDEX_CLIENT_SECRET}
+      FRONTEND_URL: ${FRONTEND_URL:-https://marshrutpro.ru}
+      EUREKA_URI: http://eureka-server:8761/eureka/
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  # ============================================================
+  # Core Service
+  # ============================================================
+  core-service:
+    build:
+      context: .
+      dockerfile: tms-core-service/Dockerfile
+    container_name: tms-core
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8082:8082"
+    networks:
+      - internal
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/tms_db
+      DB_USER: tms_user
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      EUREKA_URI: http://eureka-server:8761/eureka/
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+
+  # ============================================================
+  # Routing Service
+  # ============================================================
+  routing-service:
+    build:
+      context: .
+      dockerfile: tms-routing-service/Dockerfile
+    container_name: tms-routing
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8083:8083"
+    networks:
+      - internal
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/tms_db
+      DB_USER: tms_user
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      YANDEX_GEOCODER_API_KEY: ${YANDEX_GEOCODER_API_KEY}
+      EUREKA_URI: http://eureka-server:8761/eureka/
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+
+  # ============================================================
+  # Frontend
+  # ============================================================
+  frontend:
+    build:
+      context: tms-frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_YANDEX_MAPS_KEY: ${VITE_YANDEX_MAPS_KEY:-}
+    container_name: tms-frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:80"
+    networks:
+      - internal
+    depends_on:
+      - api-gateway
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  internal:
+    driver: bridge

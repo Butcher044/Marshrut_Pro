@@ -1,0 +1,68 @@
+server:
+  port: 8081
+  forward-headers-strategy: framework
+
+spring:
+  application:
+    name: tms-auth-service
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/tms_db}
+    username: ${DB_USER:tms_user}
+    password: ${DB_PASSWORD:secret}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: 6379
+      password: ${REDIS_PASSWORD:}
+
+  security:
+    oauth2:
+      client:
+        registration:
+          yandex:
+            client-id: ${YANDEX_CLIENT_ID:change_me}
+            client-secret: ${YANDEX_CLIENT_SECRET:change_me}
+            authorization-grant-type: authorization_code
+            redirect-uri: "${OAUTH2_REDIRECT_URI:https://marshrutpro.ru/login/oauth2/code/yandex}"
+            scope: login:email, login:info
+        provider:
+          yandex:
+            authorization-uri: https://oauth.yandex.ru/authorize
+            token-uri: https://oauth.yandex.ru/token
+            user-info-uri: https://login.yandex.ru/info
+            user-name-attribute: id
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URI:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 5
+    lease-expiration-duration-in-seconds: 15
+
+jwt:
+  secret: ${JWT_SECRET:default_secret_change_in_production_min_32_chars}
+  access-expiration: 900000
+  refresh-expiration: 604800000
+
+app:
+  frontend-url: ${FRONTEND_URL:http://localhost:3000}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

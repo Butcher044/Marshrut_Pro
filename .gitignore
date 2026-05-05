@@ -1,0 +1,42 @@
+# Переменные окружения — никогда не коммитить
+.env
+.env.example
+.env.local
+.env.*.local
+
+# Claude Code — внутренние файлы ассистента
+.claude/
+
+# Агенты (tms-frontend)
+tms-frontend/.agents/
+
+# Документация развёртывания (содержит чувствительные данные)
+DEPLOY.md
+
+# Maven — артефакты сборки
+target/
+*.class
+*.jar
+*.war
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.suo
+*.user
+
+# Node
+tms-frontend/node_modules/
+tms-frontend/dist/
+tms-frontend/.cache/
+
+# ОС
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Логи
+*.log
+logs/

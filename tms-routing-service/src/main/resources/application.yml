@@ -1,0 +1,44 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: tms-routing-service
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/tms_db}
+    username: ${DB_USER:tms_user}
+    password: ${DB_PASSWORD:secret}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.spatial.dialect.postgis.PostgisPG10Dialect
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: 6379
+      password: ${REDIS_PASSWORD:}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URI:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+yandex:
+  geocoder:
+    api-key: ${YANDEX_GEOCODER_API_KEY:change_me}
+    base-url: https://geocode-maps.yandex.ru/1.x
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
