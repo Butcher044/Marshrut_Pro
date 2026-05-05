@@ -617,7 +617,7 @@ erDiagram
 
     routes {
         bigserial id PK
-        bigint order_id UK_FK
+        bigint order_id FK
         numeric total_km
         integer duration_min
         varchar status
